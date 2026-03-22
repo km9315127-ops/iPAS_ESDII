@@ -81,7 +81,7 @@
     <section id="screen-home" class="hero">
       <div style="font-size:54px">🤖</div>
       <h1>淨零碳規劃管理師 刷題系統</h1>
-      <p class="muted">淨零碳規劃管理師（iPAS）模擬測驗與練習平台，支援科目一與科目二刷題、解析與錯題追蹤。</p>
+      <p class="muted">淨零碳規劃管理師（iPAS）模擬測驗與練習平台，支援科目一與科目二刷題、每次至少 25 題、含複選題、解析與錯題追蹤。</p>
       <div class="grid" style="margin-top:24px">
         <div class="card">
           <h2>科目一：節能減碳技術實務</h2>
@@ -199,10 +199,10 @@
 
     <section id="screen-result" class="hidden">
       <div class="card">
-        <h2>作答結果</h2>
+        <h2>最終成績</h2>
         <div class="row">
           <div>
-            <div class="score-big" id="final-score">0 / 0</div>
+            <div class="muted small">最終分數</div><div class="score-big" id="final-score">0 / 0</div>
             <p class="muted" id="final-summary">答對率 0%</p>
           </div>
           <div class="small">
@@ -284,9 +284,32 @@
       currentSubject = subject;
       wrongRetryMode = false;
       const pool = QUESTION_BANK.filter(q => q.subject === subject && q.approved !== false);
-      quizSet = shuffle(pool).slice(0, Math.min(10, pool.length));
+
+      const singles = shuffle(pool.filter(q => q.type === "single_choice" || q.type === "scenario"));
+      const multiples = shuffle(pool.filter(q => q.type === "multiple_choice"));
+      const traps = shuffle(pool.filter(q => q.type === "trap"));
+
+      const targetTotal = Math.min(25, pool.length);
+      let selected = [];
+
+      // 25 題配置：單/情境 18 題、複選 5 題、陷阱 2 題（若題庫不足則自動補足）
+      selected = [
+        ...singles.slice(0, Math.min(18, singles.length)),
+        ...multiples.slice(0, Math.min(5, multiples.length)),
+        ...traps.slice(0, Math.min(2, traps.length))
+      ];
+
+      // 若不足 25 題，從剩餘題庫補滿
+      const selectedIds = new Set(selected.map(q => q.id));
+      const remaining = shuffle(pool.filter(q => !selectedIds.has(q.id)));
+      if(selected.length < targetTotal){
+        selected = selected.concat(remaining.slice(0, targetTotal - selected.length));
+      }
+
+      quizSet = shuffle(selected).slice(0, targetTotal);
       currentIndex = 0;
       currentResult = [];
+
       if(!quizSet.length){
         alert(`${subject} 目前沒有題目，請確認題庫是否正確載入。`);
         return;
@@ -397,6 +420,7 @@
       if(currentIndex >= quizSet.length){
         renderResult();
         showScreen("screen-result");
+        setTimeout(() => { alert(`測驗完成！\n最終分數：${correct} / ${total}\n答對率：${rate}%`); }, 100);
       }else{
         renderQuestion();
       }
@@ -409,7 +433,7 @@
       const rate = Math.round((correct / total) * 100);
 
       document.getElementById("final-score").textContent = `${correct} / ${total}`;
-      document.getElementById("final-summary").textContent = `答對率 ${rate}%`;
+      document.getElementById("final-summary").textContent = `本次測驗完成，答對率 ${rate}%`;
       document.getElementById("final-subject").textContent = `科目：${currentSubject}`;
       document.getElementById("final-time").textContent = `完成時間：${new Date().toLocaleString()}`;
       document.getElementById("stat-total").textContent = total;
